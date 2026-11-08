@@ -407,7 +407,7 @@ document.addEventListener('change',function(ev){
     };
     rd.readAsText(file);t.value='';return;
   }
-  vark=t.dataset&&t.dataset.set;if(!k)return;
+  var k=t.dataset&&t.dataset.set;if(!k)return;
   var v=t.value;
   if(k==='unit')convert(v);
   else S[k]=parseInt(v,10);
