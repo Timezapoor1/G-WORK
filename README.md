@@ -5,7 +5,7 @@ A 5/3/1 workout tracker that runs in the browser and installs to the iPhone home
 - Per-lift cycle and week, with weights built from a training max (90% of your PR by default)
 - Set-by-set logging, plate breakdown, rest timer
 - PRs from estimated 1RM, updated automatically when you beat them
-- Add your own lifts
+- Starts empty: add your own lifts and their 1RMs
 - Works offline once loaded
 
 ## Run it

@@ -119,10 +119,10 @@ input,select{font-size:16px}
 (function(){
 'use strict';
 var LS='531log.v1';
-var DEFAULT_LIFTS=[{k:'press',n:'Overhead Press'},{k:'deadlift',n:'Deadlift'},{k:'bench',n:'Bench Press'},{k:'squat',n:'Squat'}];
-var LIFTS=DEFAULT_LIFTS,NAME={};
+var LIFTS=[],NAME={};
 function syncLifts(){
-  if(!Array.isArray(S.lifts)||!S.lifts.length)S.lifts=DEFAULT_LIFTS.map(function(l){return{k:l.k,n:l.n}});
+  if(!Array.isArray(S.lifts))S.lifts=[];
+  if(!S.setup){S.setup=true;S.lifts=S.lifts.filter(function(l){return S.pr[l.k]>0})}
   LIFTS=S.lifts;NAME={};LIFTS.forEach(function(l){NAME[l.k]=l.n;if(typeof S.pr[l.k]!=='number')S.pr[l.k]=0});
   if(!S.pos){S.pos={};LIFTS.forEach(function(l){
     var c=S.cycle||1,w=S.week||1;
@@ -138,8 +138,8 @@ var WEEKS={
   3:{name:'5/3/1 week',p:[[.75,5],[.85,3],[.95,1,1]]},
   4:{name:'Deload',p:[[.40,5],[.50,5],[.60,5]],deload:true}
 };
-function def(){return{v:1,upd:0,unit:'lb',setup:false,tmPct:90,restWork:180,
-  lifts:DEFAULT_LIFTS.map(function(l){return{k:l.k,n:l.n}}),pr:{press:0,deadlift:0,bench:0,squat:0},cycle:1,week:1,history:[],prLog:[],active:null}}
+function def(){return{v:1,upd:0,unit:'lb',setup:true,tmPct:90,restWork:180,
+  lifts:[],pr:{},cycle:1,week:1,history:[],prLog:[],active:null}}
 function load(){try{var r=JSON.parse(localStorage.getItem(LS));if(r&&r.v===1)return Object.assign(def(),r)}catch(e){}return null}
 var S=load()||def();
 var tab='lifts',summary=null,confirmReset=false,confirmDiscard=false,confirmLift=null,fired={};
@@ -202,22 +202,13 @@ function topOf(h){
 }
 function bestE1(h){var b=0;h.sets.forEach(function(s){if(s[2]!=='w')b=Math.max(b,e1(s[0],s[1]))});return b}
 
-function setupHTML(){
-  return '<div class="stack"><h2>Set up your lifts</h2>'+
-  '<p class="hint" style="margin:0">Enter your current one-rep max for each lift. You can add your own lifts later on the PRs tab. Your training max is '+S.tmPct+'% of it and every weight is built from that.</p>'+
-  '<div class="card stack">'+
-  '<div class="field"><label class="label" for="su-unit">Units</label><select id="su-unit"><option value="lb"'+(S.unit==='lb'?' selected':'')+'>Pounds (lb)</option><option value="kg"'+(S.unit==='kg'?' selected':'')+'>Kilograms (kg)</option></select></div>'+
-  '<div class="grid2">'+LIFTS.map(function(l){return '<div class="field"><label class="label" for="su-'+l.k+'">'+l.n+' 1RM</label><input type="number" inputmode="decimal" id="su-'+l.k+'" min="1" step="any"></div>'}).join('')+'</div>'+
-  '<button class="btn primary block" data-act="setup-go">Start program</button></div></div>';
-}
-
 function pos(l){var p=S.pos&&S.pos[l];return p?{c:p.c,w:p.w}:{c:1,w:1}}
 function nextPos(p){return p.w===4?{c:p.c+1,w:1}:{c:p.c,w:p.w+1}}
 function prevPos(p){return p.w===1?(p.c>1?{c:p.c-1,w:4}:p):{c:p.c,w:p.w-1}}
 function lastOf(l){for(var i=S.history.length-1;i>=0;i--)if(S.history[i].l===l)return S.history[i];return null}
 function liftsHTML(){
-  if(!S.setup)return setupHTML();
   var h='<div class="stack"><h2>Lifts</h2>';
+  if(!LIFTS.length)h+='<div class="card"><b>No lifts yet.</b><p class="hint" style="margin:4px 0 0">Add your first lift below with its current one-rep max. Weights are built from a training max of '+S.tmPct+'% of it.</p></div>';
   if(summary){
     var np=pos(summary.l);
     h+='<div class="banner"><div class="label" style="color:inherit">'+(NAME[summary.l]||'Lift')+' logged</div>'+
@@ -242,7 +233,7 @@ function liftsHTML(){
       (last&&last.r>1?'<div class="meta">Best set '+f(last.wt)+' × '+last.r+'</div>':'')+'</div>'+
     '<div style="text-align:right"><div class="num" style="font-size:18px">'+(S.pr[l.k]?f(tm(l.k)):'—')+'</div><div class="hint">training max</div></div></div>'+
     '<div class="row"><input type="number" inputmode="decimal" id="pr-'+l.k+'" step="any" placeholder="Set PR manually" style="flex:1;width:auto" aria-label="'+l.n+' PR"><button class="btn small" data-act="pr-save" data-l="'+l.k+'">Save</button></div>'+
-    (LIFTS.length>1?'<button class="btn small ghost danger" data-act="lift-del" data-l="'+l.k+'">'+(confirmLift===l.k?'Tap again to remove lift':'Remove lift')+'</button>':'')+'</div>';
+    (LIFTS.length>0?'<button class="btn small ghost danger" data-act="lift-del" data-l="'+l.k+'">'+(confirmLift===l.k?'Tap again to remove lift':'Remove lift')+'</button>':'')+'</div>';
   });
   h+='<div class="card stack"><div class="label">Add a lift</div><div class="field"><label class="label" for="nl-name">Name</label><input type="text" id="nl-name" maxlength="40" placeholder="e.g. Barbell Row"></div>'+
     '<div class="field"><label class="label" for="nl-pr">Current 1RM ('+S.unit+')</label><input type="number" inputmode="decimal" id="nl-pr" min="1" step="any"></div>'+
@@ -352,13 +343,6 @@ document.addEventListener('click',function(ev){
   if(act!=='lift-del')confirmLift=null;
   switch(act){
     case 'tab':tab=b.dataset.v;render();window.scrollTo(0,0);return;
-    case 'setup-go':{
-      var vals={},ok=true;
-      LIFTS.forEach(function(l){var n=parseFloat(document.getElementById('su-'+l.k).value);if(!(n>0))ok=false;vals[l.k]=n});
-      if(!ok){alert_('Enter a 1RM for all four lifts.');return}
-      S.unit=document.getElementById('su-unit').value;S.pr=vals;S.setup=true;S.cycle=1;S.week=1;S.pos=null;
-      LIFTS.forEach(function(l){S.prLog.push({t:Date.now(),l:l.k,e:vals[l.k],wt:vals[l.k],r:1})});
-      save();render();return}
     case 'lw-prev':S.pos[b.dataset.l]=prevPos(pos(b.dataset.l));save();render();return;
     case 'lw-next':S.pos[b.dataset.l]=nextPos(pos(b.dataset.l));save();render();return;
     case 'start':unlock();summary=null;tab='lifts';var sp=pos(b.dataset.l);S.active={lift:b.dataset.l,cycle:sp.c,week:sp.w,sets:buildSets(b.dataset.l,sp.w),restStart:null,restTarget:0,startedAt:Date.now()};save();wake();render();window.scrollTo(0,0);return;
