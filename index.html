@@ -138,7 +138,7 @@ var WEEKS={
   3:{name:'5/3/1 week',p:[[.75,5],[.85,3],[.95,1,1]]},
   4:{name:'Deload',p:[[.40,5],[.50,5],[.60,5]],deload:true}
 };
-function def(){return{v:1,upd:0,unit:'lb',setup:true,tmPct:90,restWork:180,
+function def(){return{v:1,upd:0,unit:'kg',setup:true,tmPct:90,restWork:180,
   lifts:[],pr:{},cycle:1,week:1,history:[],prLog:[],active:null}}
 function load(){try{var r=JSON.parse(localStorage.getItem(LS));if(r&&r.v===1)return Object.assign(def(),r)}catch(e){}return null}
 var S=load()||def();
@@ -284,7 +284,7 @@ function settingsHTML(){
   '</div><div class="card stack"><div class="label">Backup</div><p class="hint" style="margin:0">Your data lives only in this browser. Export a copy now and then, and use import to move it to another device.</p>'+
   '<div class="row"><button class="btn small" data-act="export">Export backup</button><label class="btn small" for="imp" style="display:inline-flex;align-items:center">Import backup</label><input type="file" id="imp" accept="application/json,.json" hidden></div>'+
   '</div><div class="card stack"><div class="label">Reset</div><p class="hint" style="margin:0">Erases PRs, history and program position.</p>'+
-  '<button class="btn danger" data-act="reset">'+(confirmReset?'Tap again to erase everything':'Erase all data')+'</button></div><div class="hint" style="text-align:center">G-WORK build 3</div></div>';
+  '<button class="btn danger" data-act="reset">'+(confirmReset?'Tap again to erase everything':'Erase all data')+'</button></div><div class="hint" style="text-align:center">G-WORK build 4</div></div>';
 }
 
 function render(){
