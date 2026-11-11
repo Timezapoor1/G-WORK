@@ -117,6 +117,21 @@ input::placeholder{color:var(--muted)}
 .slide-thumb{z-index:2;position:absolute;top:4px;left:4px;width:36px;height:36px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center;font:700 22px/1 var(--display);touch-action:none;cursor:grab}
 .slide:not(.drag) .slide-thumb{transition:transform .2s}
 .slide:not(.drag) .slide-fill{transition:width .2s}
+.modal{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.62);display:flex;align-items:flex-end;justify-content:center;
+  padding:12px max(12px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));overflow-y:auto}
+.sheet{width:100%;max-width:520px;background:linear-gradient(165deg,#0f3a31 0%,var(--surface) 58%);border-radius:24px;padding:18px 16px 14px;text-align:center;
+  box-shadow:inset 0 0 0 1px rgba(25,211,162,.4),0 20px 60px rgba(0,0,0,.5);animation:rise .28s cubic-bezier(.2,.8,.2,1)}
+@keyframes rise{from{transform:translateY(40px) scale(.97);opacity:0}to{transform:none;opacity:1}}
+.sheet .logo{font:italic 900 24px/1 'Barlow','Arial Black',Impact,sans-serif;color:var(--ink);text-transform:uppercase}
+.sheet .logo::first-letter{color:var(--accent)}
+.sheet .tag{font:700 11px/1 var(--body);letter-spacing:.18em;color:var(--accent);margin-top:6px}
+.sheet .lf{font:600 17px/1.2 var(--display);color:var(--muted);margin-top:10px}
+.sheet .big{font:700 64px/1 var(--display);letter-spacing:-.03em;margin-top:2px}
+.sheet .big small{font-size:18px;color:var(--muted);margin-left:5px;letter-spacing:0}
+.sheet .delta{display:inline-block;margin-top:6px;padding:4px 12px;border-radius:999px;background:var(--pr-bg);color:var(--good);font-weight:700;font-size:14px}
+.sheet .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0 12px;text-align:left}
+.tile{background:rgba(255,255,255,.06);border-radius:14px;padding:9px 12px;min-width:0}
+.tile .tv{font:700 16px/1.25 var(--display);margin-top:2px;overflow-wrap:anywhere}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -350,7 +365,7 @@ function settingsHTML(){
   '</div><div class="card stack"><div class="label">Backup</div><p class="hint" style="margin:0">Your data lives only in this browser. Export a copy now and then, and use import to move it to another device.</p>'+
   '<div class="row"><button class="btn small" data-act="export">Export backup</button><label class="btn small" for="imp" style="display:inline-flex;align-items:center">Import backup</label><input type="file" id="imp" accept="application/json,.json" hidden></div>'+
   '</div><div class="card stack"><div class="label">Reset</div><p class="hint" style="margin:0">Erases PRs, history and program position.</p>'+
-  '<button class="btn danger" data-act="reset">'+(confirmReset?'Tap again to erase everything':'Erase all data')+'</button></div><div class="hint" style="text-align:center">G-WORK build 8</div></div>';
+  '<button class="btn danger" data-act="reset">'+(confirmReset?'Tap again to erase everything':'Erase all data')+'</button></div><div class="hint" style="text-align:center">G-WORK build 9</div></div>';
 }
 
 function render(){
@@ -385,13 +400,14 @@ function finish(){
   S.history.push(rec);
   var best=0,bs=null;
   done.forEach(function(s){if(s.kind!=='w'){var e=e1(s.wt,s.reps);if(e>best){best=e;bs=s}}});
-  var isPR=false;
-  if(bs&&r1(best)>S.pr[l]){var prev=S.pr[l];S.pr[l]=r1(best);S.prLog.push({t:rec.t,l:l,n:NAME[l],e:r1(best),wt:bs.wt,r:bs.reps,p:prev,c:a.cycle,wk:a.week,ach:1});isPR=true}
+  var isPR=false,popupInfo=null;
+  if(bs&&r1(best)>S.pr[l]){var prev=S.pr[l];S.pr[l]=r1(best);S.prLog.push({t:rec.t,l:l,n:NAME[l],e:r1(best),wt:bs.wt,r:bs.reps,p:prev,c:a.cycle,wk:a.week,ach:1});isPR=true;popupInfo={i:S.prLog.length-1}}
   S.pos[l]=nextPos({c:a.cycle,w:a.week});
   summary={l:l,top:topOf(rec),e:best,pr:isPR};
   S.active=null;
   if(wl){try{wl.release()}catch(e){}wl=null}
   save();render();window.scrollTo(0,0);
+  if(popupInfo)showPopup(popupInfo);
 }
 function convert(to){
   if(to===S.unit)return;
@@ -402,6 +418,7 @@ function convert(to){
   S.active=null;S.unit=to;
 }
 document.addEventListener('click',function(ev){
+  if(ev.target&&ev.target.id==='modal'){closePopup();return}
   var b=ev.target.closest('[data-act]');if(!b)return;
   var act=b.dataset.act,a=S.active,s;
   if(act!=='reset')confirmReset=false;
@@ -442,6 +459,8 @@ document.addEventListener('click',function(ev){
       confirmLift=null;S.lifts=S.lifts.filter(function(x){return x.k!==b.dataset.l});
       if(S.active&&S.active.lift===b.dataset.l)S.active=null;
       save();render();return;
+    case 'pop-close':closePopup();return;
+    case 'pop-ach':closePopup();tab='achievements';render();window.scrollTo(0,0);return;
     case 'share':shareCard(parseInt(b.dataset.i,10));return;
     case 'export':{
       var blob=new Blob([JSON.stringify(S,null,1)],{type:'application/json'}),u=URL.createObjectURL(blob),a2=document.createElement('a');
@@ -456,10 +475,37 @@ function alert_(msg){
   var el=document.getElementById('sync');el.textContent=msg;el.style.color='var(--warn)';
   setTimeout(function(){el.style.color='';showSync()},2500);
 }
+function showPopup(info){
+  var p=S.prLog[info.i];if(!p)return;
+  var prev=p.p,d=prev?p.e-prev:0,pct=prev?d/prev*100:0,u=' '+S.unit;
+  var tile=function(l,v){return '<div class="tile"><div class="label">'+l+'</div><div class="tv">'+v+'</div></div>'};
+  var h='<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pop-t">'+
+    '<div class="logo">G-WORK</div><div class="tag" id="pop-t">NEW PR</div>'+
+    '<div class="lf">'+(NAME[p.l]||p.n||'Lift')+'</div>'+
+    '<div class="big">'+f(p.e)+'<small>'+S.unit+'</small></div>'+
+    (prev?'<div class="delta">+'+f(d)+u+' · +'+pct.toFixed(1)+'%</div>':'')+
+    '<div class="stats">'+
+      tile('Previous PR',prev?f(prev)+u:'—')+
+      tile('Increase',prev?'+'+f(d)+u:'—')+
+      tile(info.manual?'Entered':'Best set',info.manual?'By hand':f(p.wt)+' × '+p.r)+
+      tile('Training max',f(tm(p.l))+u)+
+      tile(p.c?'Cycle · week':'Source',p.c?p.c+' · '+p.wk:'Manual')+
+      tile('Date',dateLong(p.t))+
+    '</div>'+
+    '<button class="btn primary block" data-act="pop-close" id="pop-done">Done</button>'+
+    (info.manual?'':'<div class="row" style="margin-top:6px"><button class="btn small" style="flex:1" data-act="share" data-i="'+info.i+'">Save image</button><button class="btn small" style="flex:1" data-act="pop-ach">Achievements</button></div>')+
+    '</div>';
+  var el=document.getElementById('modal');
+  if(!el){el=document.createElement('div');el.id='modal';document.body.appendChild(el)}
+  el.className='modal';el.innerHTML=h;
+  var done=document.getElementById('pop-done');if(done&&done.focus)done.focus();
+}
+function closePopup(){var el=document.getElementById('modal');if(el)el.remove()}
 function manualPR(l){
   var el=document.getElementById('pr-'+l),n=el?parseFloat(el.value):NaN;
   if(!(n>0)){alert_('Enter a PR first.');return false}
-  S.pr[l]=r1(n);S.prLog.push({t:Date.now(),l:l,n:NAME[l],e:r1(n),wt:r1(n),r:1});save();render();return true;
+  var prev=S.pr[l];S.pr[l]=r1(n);S.prLog.push({t:Date.now(),l:l,n:NAME[l],e:r1(n),wt:r1(n),r:1,p:prev});save();render();
+  if(r1(n)>prev)showPopup({i:S.prLog.length-1,manual:true});return true;
 }
 var drag=null;
 document.addEventListener('pointerdown',function(e){
@@ -487,6 +533,7 @@ function endDrag(){
 document.addEventListener('pointerup',endDrag);
 document.addEventListener('pointercancel',endDrag);
 document.addEventListener('keydown',function(e){
+  if(e.key==='Escape')closePopup();
   var th=e.target.closest&&e.target.closest('.slide-thumb');
   if(th&&(e.key==='Enter'||e.key===' '||e.key==='ArrowRight')){e.preventDefault();manualPR(th.parentNode.dataset.l)}
 });
