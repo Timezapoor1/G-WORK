@@ -395,7 +395,7 @@ function settingsHTML(){
   '</div><div class="card stack"><div class="label">Backup</div><p class="hint" style="margin:0">Your data lives only in this browser. Export a copy now and then, and use import to move it to another device.</p>'+
   '<div class="row"><button class="btn small" data-act="export">Export backup</button><label class="btn small" for="imp" style="display:inline-flex;align-items:center">Import backup</label><input type="file" id="imp" accept="application/json,.json" hidden></div>'+
   '</div><div class="card stack"><div class="label">Reset</div><p class="hint" style="margin:0">Erases PRs, history and program position.</p>'+
-  '<button class="btn danger" data-act="reset">'+(confirmReset?'Tap again to erase everything':'Erase all data')+'</button></div><div class="hint" style="text-align:center">G-WORK build 12</div></div>';
+  '<button class="btn danger" data-act="reset">'+(confirmReset?'Tap again to erase everything':'Erase all data')+'</button></div><div class="hint" style="text-align:center">G-WORK build 13</div></div>';
 }
 
 function render(){
@@ -430,13 +430,14 @@ function finish(){
   S.history.push(rec);
   var best=0,bs=null;
   done.forEach(function(s){if(s.kind!=='w'){var e=e1(s.wt,s.reps);if(e>best){best=e;bs=s}}});
-  var isPR=false;
-  if(bs&&r1(best)>S.pr[l]){var prev=S.pr[l];S.pr[l]=r1(best);S.prLog.push({t:rec.t,l:l,n:NAME[l],e:r1(best),wt:bs.wt,r:bs.reps,p:prev,c:a.cycle,wk:a.week,ach:1});isPR=true}
+  var isPR=false,popupInfo=null;
+  if(bs&&r1(best)>S.pr[l]){var prev=S.pr[l],old=tm(l);S.pr[l]=r1(best);S.prLog.push({t:rec.t,l:l,n:NAME[l],e:r1(best),wt:bs.wt,r:bs.reps,p:prev,t0:old,ta:S.act[l]||0,c:a.cycle,wk:a.week,ach:1});isPR=true;popupInfo={i:S.prLog.length-1}}
   S.pos[l]=nextPos({c:a.cycle,w:a.week});
   summary={l:l,top:topOf(rec),e:best,pr:isPR};
   S.active=null;
   if(wl){try{wl.release()}catch(e){}wl=null}
   save();render();window.scrollTo(0,0);
+  if(popupInfo)showPopup(popupInfo);
 }
 function convert(to){
   if(to===S.unit)return;
@@ -444,7 +445,7 @@ function convert(to){
   Object.keys(S.pr).forEach(function(l){S.pr[l]=c(S.pr[l])});
   Object.keys(S.act||{}).forEach(function(l){S.act[l]=c(S.act[l])});
   S.history.forEach(function(h){h.sets.forEach(function(s){s[0]=c(s[0])})});
-  S.prLog.forEach(function(p){p.e=c(p.e);p.wt=c(p.wt);if(p.p)p.p=c(p.p);if(p.tp)p.tp=c(p.tp);if(p.t0)p.t0=c(p.t0)});
+  S.prLog.forEach(function(p){p.e=c(p.e);p.wt=c(p.wt);if(p.p)p.p=c(p.p);if(p.tp)p.tp=c(p.tp);if(p.t0)p.t0=c(p.t0);if(p.ta)p.ta=c(p.ta)});
   S.active=null;S.unit=to;
 }
 document.addEventListener('click',function(ev){
@@ -517,11 +518,11 @@ function showPopup(info){
     '<div class="osub">'+(NAME[p.l]||p.n||'Lift')+'</div>'+
     '<div class="big">'+f(p.e)+'<small>'+S.unit+'</small></div>'+
     '<div class="orows">'+
-      row('Type','Actual PR · manual')+
-      row('Previous actual PR',prev?f(prev)+u:'—')+
-      row('New actual PR',f(p.e)+u)+
+      row('Type',p.man?'Actual PR · manual':'Projected PR · workout')+
+      row(p.man?'Previous actual PR':'Previous projected 1RM',prev?f(prev)+u:'—')+
+      row(p.man?'New actual PR':'New projected 1RM',f(p.e)+u)+
       row('Change',prev?'+'+f(d)+u+' (+'+pct.toFixed(1)+'%)':'—','pos')+
-      row('Projected 1RM',f(p.tp||p.e)+u)+
+      (p.man?row('Projected 1RM',f(p.tp||p.e)+u):row('From set',f(p.wt)+' × '+p.r)+row('Actual PR',f(p.ta||0)+u))+
       row('Training max',(p.t0?f(p.t0)+' → ':'')+f(tm(p.l))+u)+
       row('Logged',when)+
     '</div>'+
