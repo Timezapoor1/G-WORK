@@ -134,6 +134,15 @@ input::placeholder{color:var(--muted)}
 .orow span{color:var(--muted);flex:none}
 .orow b{font-weight:600;text-align:right;min-width:0;overflow-wrap:anywhere}
 .orow b.pos{color:var(--good)}
+.projh{display:flex;justify-content:space-between;gap:8px;margin-top:12px;text-align:left}
+.projh .beatl{color:var(--accent)}
+.projg{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:6px}
+.proj{border:0;border-radius:10px;background:var(--surface2);padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:0}
+.proj span{font:500 10px var(--body);color:var(--muted)}
+.proj b{font:700 13px var(--display);letter-spacing:-.01em}
+.proj.beat{background:var(--pr-bg)}
+.proj.beat b{color:var(--accent)}
+.proj.sel{box-shadow:inset 0 0 0 2px var(--accent)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -276,6 +285,14 @@ function liftsHTML(){
   return h+'</div>';
 }
 
+function projHTML(s,a){
+  var pr=S.pr[a.lift]||0,from=Math.max(1,s.target),h='';
+  for(var r=from;r<from+10;r++){
+    var e=e1(s.wt,r),beat=r1(e)>pr;
+    h+='<button class="proj'+(beat?' beat':'')+(r===s.reps?' sel':'')+'" data-act="rp-set" data-n="'+r+'" aria-label="'+r+' reps, projected 1RM '+f(e)+(beat?', new PR':'')+'"><span>'+r+' reps</span><b>'+f(e)+'</b></button>';
+  }
+  return '<div class="projh"><span class="label">Projected 1RM at '+f(s.wt)+' '+S.unit+'</span><span class="label beatl">Mint = new PR</span></div><div class="projg">'+h+'</div>';
+}
 function workoutHTML(){
   var a=S.active,W=WEEKS[a.week],idx=a.sets.findIndex(function(s){return !s.done});
   var h='<div class="stack"><div class="row"><div><div class="label">Cycle '+a.cycle+' · Week '+a.week+' · '+W.name+'</div><h2>'+NAME[a.lift]+'</h2></div>'+
@@ -292,6 +309,7 @@ function workoutHTML(){
     h+='<div class="card cur"><div class="label">'+label+'</div>'+
     '<div style="margin-top:8px"><span class="num w">'+f(s.wt)+'</span><span class="unit">'+S.unit+'</span></div>'+
     '<div class="tgt">× '+s.target+(s.kind==='a'?'+':'')+'</div><div class="plates">'+plates(s.wt)+'</div>'+
+    (idx===a.sets.length-1?projHTML(s,a):'')+
     '<div class="steps"><div class="stepper"><button data-act="wt-" aria-label="Lighter">−</button><div class="v">'+f(s.wt)+'<small>weight</small></div><button data-act="wt+" aria-label="Heavier">+</button></div>'+
     '<div class="stepper"><button data-act="rp-" aria-label="Fewer reps">−</button><div class="v">'+s.reps+'<small>reps done</small></div><button data-act="rp+" aria-label="More reps">+</button></div></div>'+
     '<button class="btn primary block" data-act="log" style="min-height:42px">Log set</button></div>';
@@ -367,7 +385,7 @@ function settingsHTML(){
   '</div><div class="card stack"><div class="label">Backup</div><p class="hint" style="margin:0">Your data lives only in this browser. Export a copy now and then, and use import to move it to another device.</p>'+
   '<div class="row"><button class="btn small" data-act="export">Export backup</button><label class="btn small" for="imp" style="display:inline-flex;align-items:center">Import backup</label><input type="file" id="imp" accept="application/json,.json" hidden></div>'+
   '</div><div class="card stack"><div class="label">Reset</div><p class="hint" style="margin:0">Erases PRs, history and program position.</p>'+
-  '<button class="btn danger" data-act="reset">'+(confirmReset?'Tap again to erase everything':'Erase all data')+'</button></div><div class="hint" style="text-align:center">G-WORK build 10</div></div>';
+  '<button class="btn danger" data-act="reset">'+(confirmReset?'Tap again to erase everything':'Erase all data')+'</button></div><div class="hint" style="text-align:center">G-WORK build 11</div></div>';
 }
 
 function render(){
@@ -434,6 +452,7 @@ document.addEventListener('click',function(ev){
     case 'wt-':s=cur();if(s){s.wt=Math.max(0,r1(s.wt-inc()));save();render()}return;
     case 'rp+':s=cur();if(s){s.reps++;save();render()}return;
     case 'rp-':s=cur();if(s){s.reps=Math.max(0,s.reps-1);save();render()}return;
+    case 'rp-set':s=cur();if(s){s.reps=parseInt(b.dataset.n,10);save();render()}return;
     case 'log':
       unlock();s=cur();if(!s)return;
       s.done=true;
