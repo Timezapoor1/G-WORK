@@ -143,6 +143,11 @@ input::placeholder{color:var(--muted)}
 .proj.beat{background:var(--pr-bg)}
 .proj.beat b{color:var(--accent)}
 .proj.sel{box-shadow:inset 0 0 0 2px var(--accent)}
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.trio>div{background:var(--surface2);border-radius:12px;padding:8px 9px;min-width:0}
+.trio .tv{font-size:19px;line-height:1.15;margin-top:3px}
+.trio .u{font:500 11px var(--body);color:var(--muted);margin-left:3px}
+.trio .note{font-size:10px;color:var(--muted);margin-top:1px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -166,7 +171,10 @@ var LIFTS=[],NAME={};
 function syncLifts(){
   if(!Array.isArray(S.lifts))S.lifts=[];
   if(!S.setup){S.setup=true;S.lifts=S.lifts.filter(function(l){return S.pr[l.k]>0})}
-  LIFTS=S.lifts;NAME={};LIFTS.forEach(function(l){NAME[l.k]=l.n;if(typeof S.pr[l.k]!=='number')S.pr[l.k]=0});
+  if(!S.act){S.act={};S.lifts.forEach(function(l){var m=0;S.prLog.forEach(function(q){
+    var workout=!q.man&&(q.ach||q.r>1||q.c);
+    if(q.l===l.k&&!workout)m=Math.max(m,q.e)});S.act[l.k]=m})}
+  LIFTS=S.lifts;NAME={};LIFTS.forEach(function(l){NAME[l.k]=l.n;if(typeof S.pr[l.k]!=='number')S.pr[l.k]=0;if(typeof S.act[l.k]!=='number')S.act[l.k]=0});
   if(!S.pos){S.pos={};LIFTS.forEach(function(l){
     var c=S.cycle||1,w=S.week||1;
     var did=S.history.some(function(h){return h.l===l.k&&h.c===c&&h.w===w});
@@ -193,7 +201,7 @@ function f(n){var r=r1(n);return Number.isInteger(r)?String(r):r.toFixed(1)}
 function inc(){return S.unit==='kg'?2.5:5}
 function bar(){return S.unit==='kg'?20:45}
 function roundTo(x,i){return Math.round(x/i)*i}
-function tm(l){return S.pr[l]*S.tmPct/100}
+function tm(l){return Math.max(S.pr[l]||0,(S.act&&S.act[l])||0)*S.tmPct/100}
 function e1(w,r){return r<=1?w:w*(1+r/30)}
 function plates(w){
   var list=S.unit==='kg'?[25,20,15,10,5,2.5,1.25]:[45,35,25,10,5,2.5];
@@ -256,7 +264,7 @@ function liftsHTML(){
     var np=pos(summary.l);
     h+='<div class="banner"><div class="label" style="color:inherit">'+(NAME[summary.l]||'Lift')+' logged</div>'+
     '<div class="num">'+(summary.top?f(summary.top[0])+' × '+summary.top[1]:'No sets')+'</div>'+
-    '<div>Estimated 1RM '+f(summary.e)+' '+S.unit+(summary.pr?'. <b>New PR.</b> Training max is now '+f(tm(summary.l))+' '+S.unit+'.':'.')+
+    '<div>Estimated 1RM '+f(summary.e)+' '+S.unit+(summary.pr?'. <b>New projected PR.</b> Training max is now '+f(tm(summary.l))+' '+S.unit+'.':'.')+
     ' Next up: cycle '+np.c+', week '+np.w+'.</div>'+(summary.pr?'<button class="btn small" style="margin-top:6px" data-act="tab" data-v="achievements">View achievement</button>':'')+'</div>';
   }
   LIFTS.forEach(function(l,li){
@@ -272,11 +280,13 @@ function liftsHTML(){
     '<div class="lift"><div class="sets">'+sets.map(function(s){return '<span><b>'+f(s.wt)+'</b> × '+s.target+(s.kind==='a'?'+':'')+'</span>'}).join('')+'</div></div>'+
     '<button class="btn primary block" data-act="start" data-l="'+l.k+'">Start</button>'+
     (lt?'<div class="hint">Last: '+dateStr(ld.t)+' · C'+ld.c+' W'+ld.w+' · '+f(lt[0])+' × '+lt[1]+'</div>':'')+
-    '<div class="row" style="align-items:flex-end"><div><span class="num big">'+(S.pr[l.k]?f(S.pr[l.k]):'—')+'</span> <span class="hint">'+S.unit+' PR</span>'+
-      (last&&last.r>1?'<div class="meta">Best set '+f(last.wt)+' × '+last.r+'</div>':'')+'</div>'+
-    '<div style="text-align:right"><div class="num" style="font-size:18px">'+(S.pr[l.k]?f(tm(l.k)):'—')+'</div><div class="hint">training max</div></div></div>'+
-    '<input type="number" inputmode="decimal" id="pr-'+l.k+'" step="any" placeholder="Set PR manually ('+S.unit+')" aria-label="'+l.n+' PR">'+
-    '<div class="slide" data-l="'+l.k+'"><span class="slide-label">Slide to set PR</span><div class="slide-fill"></div><div class="slide-thumb" role="button" tabindex="0" aria-label="Slide right or press Enter to set '+l.n+' PR">›</div></div>'+
+    (function(){
+      var A=S.act[l.k]||0,P=S.pr[l.k]||0,u='<span class="u">'+S.unit+'</span>';
+      var cell=function(lab,v,note){return '<div><div class="label">'+lab+'</div><div class="num tv">'+(v?f(v)+u:'—')+'</div>'+(note?'<div class="note">'+note+'</div>':'')+'</div>'};
+      return '<div class="trio">'+cell('Actual PR',A)+cell('Projected 1RM',P)+cell('Training max',Math.max(A,P)?tm(l.k):0,Math.max(A,P)?S.tmPct+'% of '+(A>P?'actual':'projected'):'')+'</div>';
+    })()+
+    '<input type="number" inputmode="decimal" id="pr-'+l.k+'" step="any" placeholder="Log actual PR ('+S.unit+')" aria-label="'+l.n+' actual PR">'+
+    '<div class="slide" data-l="'+l.k+'"><span class="slide-label">Slide to log actual PR</span><div class="slide-fill"></div><div class="slide-thumb" role="button" tabindex="0" aria-label="Slide right or press Enter to log '+l.n+' actual PR">›</div></div>'+
     (LIFTS.length>0?'<button class="btn small ghost danger" data-act="lift-del" data-l="'+l.k+'">'+(confirmLift===l.k?'Tap again to remove lift':'Remove lift')+'</button>':'')+'</div>';
   });
   h+='<div class="card stack"><div class="label">Add a lift</div><div class="field"><label class="label" for="nl-name">Name</label><input type="text" id="nl-name" maxlength="40" placeholder="e.g. Barbell Row"></div>'+
@@ -334,13 +344,13 @@ function achHTML(){
   S.prLog.forEach(function(p,i){if(p.ach)items.push([p,i])});
   items.reverse();
   var h='<div class="stack"><h2>Achievements</h2>';
-  if(!items.length)return h+'<div class="card"><b>No PRs yet.</b><p class="hint" style="margin:4px 0 0">Beat a lift\'s estimated 1RM in a working set and it shows up here with the weight and date.</p></div></div>';
+  if(!items.length)return h+'<div class="card"><b>No PRs yet.</b><p class="hint" style="margin:4px 0 0">Beat your projected 1RM in a working set, or slide in an actual PR on the Lifts tab, and it shows up here.</p></div></div>';
   items.forEach(function(it){
     var p=it[0],i=it[1];
-    h+='<div class="trophy"><div class="logo">G-WORK</div><div class="tag">NEW PR</div>'+
+    h+='<div class="trophy"><div class="logo">G-WORK</div><div class="tag">'+(p.man?'ACTUAL PR':'PROJECTED PR')+'</div>'+
     '<div class="lf">'+(NAME[p.l]||p.n||'Lift')+'</div>'+
     '<div class="big">'+f(p.e)+'<small>'+S.unit+'</small></div>'+
-    '<div class="sub">'+(p.man?'Logged manually':'Estimated 1RM from '+f(p.wt)+' × '+p.r)+(p.p?' · +'+f(p.e-p.p)+' on the last PR':'')+'</div>'+
+    '<div class="sub">'+(p.man?'Logged manually':'Estimated 1RM from '+f(p.wt)+' × '+p.r)+(p.p?' · +'+f(p.e-p.p)+(p.man?' on the previous actual PR':' on the last projection'):'')+'</div>'+
     '<div class="foot">'+dateLong(p.t)+(p.c?' · Cycle '+p.c+', week '+p.wk:'')+'</div>'+
     '<button class="btn small" style="margin-top:6px" data-act="share" data-i="'+i+'">Save image</button></div>';
   });
@@ -356,13 +366,13 @@ async function shareCard(i){
   g.strokeStyle='#19d3a2';g.lineWidth=12;g.strokeRect(60,60,W-120,H-120);
   g.textAlign='center';
   g.fillStyle='#19d3a2';g.font="italic 900 170px Barlow,'Arial Black',Impact,sans-serif";g.fillText('G-WORK',W/2,270);
-  g.fillStyle='#8a95a3';g.font='bold 46px '+mono;g.fillText('NEW PR',W/2,380);
+  g.fillStyle='#8a95a3';g.font='bold 46px '+mono;g.fillText(p.man?'ACTUAL PR':'PROJECTED PR',W/2,380);
   var name=(NAME[p.l]||p.n||'Lift').toUpperCase(),sz=84;
   g.fillStyle='#f2f5f7';
   do{g.font='bold '+sz+'px '+mono;sz-=4}while(g.measureText(name).width>W-220&&sz>30);
   g.fillText(name,W/2,560);
   g.font='bold 250px '+mono;g.fillText(f(p.e),W/2,840);
-  g.fillStyle='#8a95a3';g.font='bold 58px '+mono;g.fillText(S.unit+(p.man?'  PR':'  est. 1RM'),W/2,935);
+  g.fillStyle='#8a95a3';g.font='bold 58px '+mono;g.fillText(S.unit+(p.man?'  actual PR':'  projected 1RM'),W/2,935);
   g.font='48px '+mono;g.fillText(p.man?'logged manually':'from '+f(p.wt)+' x '+p.r,W/2,1035);
   g.fillText(dateLong(p.t),W/2,1115);
   var blob=await new Promise(function(res){cv.toBlob(res,'image/png')});
@@ -380,12 +390,12 @@ function settingsHTML(){
   function sel(id,opts,cur){return '<select id="'+id+'" data-set="'+id+'">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(String(o[0])===String(cur)?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select>'}
   return '<div class="stack"><h2>Settings</h2><div class="card stack">'+
   '<div class="field"><label class="label" for="unit">Units</label>'+sel('unit',[['lb','Pounds (lb), 45 lb bar, 5 lb steps'],['kg','Kilograms (kg), 20 kg bar, 2.5 kg steps']],S.unit)+'</div>'+
-  '<div class="field"><label class="label" for="tmPct">Training max as % of PR</label>'+sel('tmPct',[[85,'85%'],[90,'90% (standard)'],[95,'95%'],[100,'100%']],S.tmPct)+'</div>'+
+  '<div class="field"><label class="label" for="tmPct">Training max as % of your higher 1RM</label>'+sel('tmPct',[[85,'85%'],[90,'90% (standard)'],[95,'95%'],[100,'100%']],S.tmPct)+'</div>'+
   '<div class="field"><label class="label" for="restWork">Rest between sets</label>'+sel('restWork',[[90,'1:30'],[120,'2:00'],[180,'3:00'],[240,'4:00'],[300,'5:00']],S.restWork)+'</div>'+
   '</div><div class="card stack"><div class="label">Backup</div><p class="hint" style="margin:0">Your data lives only in this browser. Export a copy now and then, and use import to move it to another device.</p>'+
   '<div class="row"><button class="btn small" data-act="export">Export backup</button><label class="btn small" for="imp" style="display:inline-flex;align-items:center">Import backup</label><input type="file" id="imp" accept="application/json,.json" hidden></div>'+
   '</div><div class="card stack"><div class="label">Reset</div><p class="hint" style="margin:0">Erases PRs, history and program position.</p>'+
-  '<button class="btn danger" data-act="reset">'+(confirmReset?'Tap again to erase everything':'Erase all data')+'</button></div><div class="hint" style="text-align:center">G-WORK build 11</div></div>';
+  '<button class="btn danger" data-act="reset">'+(confirmReset?'Tap again to erase everything':'Erase all data')+'</button></div><div class="hint" style="text-align:center">G-WORK build 12</div></div>';
 }
 
 function render(){
@@ -432,8 +442,9 @@ function convert(to){
   if(to===S.unit)return;
   var k=to==='kg'?0.45359237:1/0.45359237,c=function(x){return r1(x*k)};
   Object.keys(S.pr).forEach(function(l){S.pr[l]=c(S.pr[l])});
+  Object.keys(S.act||{}).forEach(function(l){S.act[l]=c(S.act[l])});
   S.history.forEach(function(h){h.sets.forEach(function(s){s[0]=c(s[0])})});
-  S.prLog.forEach(function(p){p.e=c(p.e);p.wt=c(p.wt);if(p.p)p.p=c(p.p)});
+  S.prLog.forEach(function(p){p.e=c(p.e);p.wt=c(p.wt);if(p.p)p.p=c(p.p);if(p.tp)p.tp=c(p.tp);if(p.t0)p.t0=c(p.t0)});
   S.active=null;S.unit=to;
 }
 document.addEventListener('click',function(ev){
@@ -472,7 +483,7 @@ document.addEventListener('click',function(ev){
       var nm=document.getElementById('nl-name').value.trim(),pv=parseFloat(document.getElementById('nl-pr').value);
       if(!nm||!(pv>0)){alert_('Enter a name and a 1RM.');return}
       var key='c'+Date.now().toString(36);
-      S.lifts.push({k:key,n:nm});S.pos[key]={c:1,w:1};S.pr[key]=r1(pv);S.prLog.push({t:Date.now(),l:key,e:r1(pv),wt:r1(pv),r:1});
+      S.lifts.push({k:key,n:nm});S.pos[key]={c:1,w:1};S.pr[key]=r1(pv);S.act[key]=r1(pv);S.prLog.push({t:Date.now(),l:key,e:r1(pv),wt:r1(pv),r:1});
       save();render();return}
     case 'lift-del':
       if(confirmLift!==b.dataset.l){confirmLift=b.dataset.l;render();return}
@@ -497,7 +508,7 @@ function alert_(msg){
 }
 function showPopup(info){
   var p=S.prLog[info.i];if(!p)return;
-  var prev=p.p,d=prev?p.e-prev:0,pct=prev?d/prev*100:0,u=' '+S.unit,pt=prev?prev*S.tmPct/100:0;
+  var prev=p.p,d=prev?p.e-prev:0,pct=prev?d/prev*100:0,u=' '+S.unit;
   var row=function(l,v,c){return '<div class="orow"><span>'+l+'</span><b'+(c?' class="'+c+'"':'')+'>'+v+'</b></div>'};
   var when=new Date(p.t).toLocaleString(undefined,{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'});
   var h='<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pop-t">'+
@@ -506,11 +517,12 @@ function showPopup(info){
     '<div class="osub">'+(NAME[p.l]||p.n||'Lift')+'</div>'+
     '<div class="big">'+f(p.e)+'<small>'+S.unit+'</small></div>'+
     '<div class="orows">'+
-      row('Type','Manual entry')+
-      row('Previous PR',prev?f(prev)+u:'—')+
-      row('New PR',f(p.e)+u)+
+      row('Type','Actual PR · manual')+
+      row('Previous actual PR',prev?f(prev)+u:'—')+
+      row('New actual PR',f(p.e)+u)+
       row('Change',prev?'+'+f(d)+u+' (+'+pct.toFixed(1)+'%)':'—','pos')+
-      row('Training max',(prev?f(pt)+' → ':'')+f(tm(p.l))+u)+
+      row('Projected 1RM',f(p.tp||p.e)+u)+
+      row('Training max',(p.t0?f(p.t0)+' → ':'')+f(tm(p.l))+u)+
       row('Logged',when)+
     '</div>'+
     '<button class="btn primary block" data-act="pop-close" id="pop-done">Done</button>'+
@@ -525,8 +537,12 @@ function closePopup(){var el=document.getElementById('modal');if(el)el.remove()}
 function manualPR(l){
   var el=document.getElementById('pr-'+l),n=el?parseFloat(el.value):NaN;
   if(!(n>0)){alert_('Enter a PR first.');return false}
-  var prev=S.pr[l];S.pr[l]=r1(n);S.prLog.push({t:Date.now(),l:l,n:NAME[l],e:r1(n),wt:r1(n),r:1,p:prev,man:1,ach:r1(n)>prev?1:0});save();render();
-  if(r1(n)>prev)showPopup({i:S.prLog.length-1});return true;
+  var v=r1(n),prevAct=S.act[l]||0,old=tm(l);
+  S.act[l]=v;if(v>(S.pr[l]||0))S.pr[l]=v;
+  var up=v>prevAct;
+  S.prLog.push({t:Date.now(),l:l,n:NAME[l],e:v,wt:v,r:1,p:prevAct,tp:S.pr[l],t0:old,man:1,ach:up?1:0});
+  save();render();
+  if(up)showPopup({i:S.prLog.length-1});return true;
 }
 var drag=null;
 document.addEventListener('pointerdown',function(e){
