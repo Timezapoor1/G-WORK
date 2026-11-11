@@ -1,5 +1,5 @@
 /* Offline cache. Network first so new versions arrive, cache as the fallback. Bump V to force a refresh. */
-var V = 'g-work-v2';
+var V = 'g-work-v3';
 var FILES = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(V).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); }));
