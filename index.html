@@ -111,6 +111,12 @@ input::placeholder{color:var(--muted)}
 .tabs .in{display:flex;gap:4px;width:100%;max-width:560px}
 .tabs button{flex:1;min-height:40px;border:0;background:transparent;border-radius:999px;font:600 13px var(--display);padding:0 2px;color:var(--muted)}
 .tabs button[aria-current=true]{color:var(--accent);background:var(--surface2)}
+.slide{position:relative;height:44px;border-radius:999px;background:var(--surface2);overflow:hidden;user-select:none;-webkit-user-select:none}
+.slide-fill{position:absolute;top:0;bottom:0;left:0;width:44px;background:var(--pr-bg);border-radius:999px}
+.slide-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding-left:36px;color:var(--muted);font-weight:600;font-size:13px;pointer-events:none}
+.slide-thumb{position:absolute;top:4px;left:4px;width:36px;height:36px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center;font:700 22px/1 var(--display);touch-action:none;cursor:grab}
+.slide:not(.drag) .slide-thumb{transition:transform .2s}
+.slide:not(.drag) .slide-fill{transition:width .2s}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -243,7 +249,8 @@ function liftsHTML(){
     '<div class="row" style="align-items:flex-end"><div><span class="num big">'+(S.pr[l.k]?f(S.pr[l.k]):'—')+'</span> <span class="hint">'+S.unit+' PR</span>'+
       (last&&last.r>1?'<div class="meta">Best set '+f(last.wt)+' × '+last.r+'</div>':'')+'</div>'+
     '<div style="text-align:right"><div class="num" style="font-size:18px">'+(S.pr[l.k]?f(tm(l.k)):'—')+'</div><div class="hint">training max</div></div></div>'+
-    '<div class="row"><input type="number" inputmode="decimal" id="pr-'+l.k+'" step="any" placeholder="Set PR manually" style="flex:1;width:auto" aria-label="'+l.n+' PR"><button class="btn small" data-act="pr-save" data-l="'+l.k+'">Save</button></div>'+
+    '<input type="number" inputmode="decimal" id="pr-'+l.k+'" step="any" placeholder="Set PR manually ('+S.unit+')" aria-label="'+l.n+' PR">'+
+    '<div class="slide" data-l="'+l.k+'"><div class="slide-fill"></div><span class="slide-label">Slide to set PR</span><div class="slide-thumb" role="button" tabindex="0" aria-label="Slide right or press Enter to set '+l.n+' PR">›</div></div>'+
     (LIFTS.length>0?'<button class="btn small ghost danger" data-act="lift-del" data-l="'+l.k+'">'+(confirmLift===l.k?'Tap again to remove lift':'Remove lift')+'</button>':'')+'</div>';
   });
   h+='<div class="card stack"><div class="label">Add a lift</div><div class="field"><label class="label" for="nl-name">Name</label><input type="text" id="nl-name" maxlength="40" placeholder="e.g. Barbell Row"></div>'+
@@ -343,7 +350,7 @@ function settingsHTML(){
   '</div><div class="card stack"><div class="label">Backup</div><p class="hint" style="margin:0">Your data lives only in this browser. Export a copy now and then, and use import to move it to another device.</p>'+
   '<div class="row"><button class="btn small" data-act="export">Export backup</button><label class="btn small" for="imp" style="display:inline-flex;align-items:center">Import backup</label><input type="file" id="imp" accept="application/json,.json" hidden></div>'+
   '</div><div class="card stack"><div class="label">Reset</div><p class="hint" style="margin:0">Erases PRs, history and program position.</p>'+
-  '<button class="btn danger" data-act="reset">'+(confirmReset?'Tap again to erase everything':'Erase all data')+'</button></div><div class="hint" style="text-align:center">G-WORK build 6</div></div>';
+  '<button class="btn danger" data-act="reset">'+(confirmReset?'Tap again to erase everything':'Erase all data')+'</button></div><div class="hint" style="text-align:center">G-WORK build 7</div></div>';
 }
 
 function render(){
@@ -440,10 +447,6 @@ document.addEventListener('click',function(ev){
       var blob=new Blob([JSON.stringify(S,null,1)],{type:'application/json'}),u=URL.createObjectURL(blob),a2=document.createElement('a');
       a2.href=u;a2.download='g-work-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a2);a2.click();a2.remove();
       setTimeout(function(){URL.revokeObjectURL(u)},1000);return}
-    case 'pr-save':{
-      var l=b.dataset.l,n=parseFloat(document.getElementById('pr-'+l).value);
-      if(!(n>0))return;
-      S.pr[l]=r1(n);S.prLog.push({t:Date.now(),l:l,e:r1(n),wt:r1(n),r:1});save();render();return}
     case 'reset':
       if(!confirmReset){confirmReset=true;render();return}
       confirmReset=false;S=def();summary=null;save();render();return;
@@ -453,6 +456,39 @@ function alert_(msg){
   var el=document.getElementById('sync');el.textContent=msg;el.style.color='var(--warn)';
   setTimeout(function(){el.style.color='';showSync()},2500);
 }
+function manualPR(l){
+  var el=document.getElementById('pr-'+l),n=el?parseFloat(el.value):NaN;
+  if(!(n>0)){alert_('Enter a PR first.');return false}
+  S.pr[l]=r1(n);S.prLog.push({t:Date.now(),l:l,n:NAME[l],e:r1(n),wt:r1(n),r:1});save();render();return true;
+}
+var drag=null;
+document.addEventListener('pointerdown',function(e){
+  var th=e.target.closest&&e.target.closest('.slide-thumb');if(!th)return;
+  var tr=th.parentNode;
+  drag={th:th,tr:tr,x0:e.clientX,max:tr.clientWidth-th.offsetWidth-8,dx:0};
+  try{th.setPointerCapture(e.pointerId)}catch(x){}
+  tr.classList.add('drag');e.preventDefault();
+});
+document.addEventListener('pointermove',function(e){
+  if(!drag)return;
+  var dx=Math.max(0,Math.min(drag.max,e.clientX-drag.x0));drag.dx=dx;
+  drag.th.style.transform='translateX('+dx+'px)';
+  drag.tr.querySelector('.slide-fill').style.width=(dx+44)+'px';
+});
+function endDrag(){
+  if(!drag)return;
+  var d=drag;drag=null;d.tr.classList.remove('drag');
+  if(d.max>0&&d.dx>=d.max*0.9){
+    if(manualPR(d.tr.dataset.l))return;
+  }
+  d.th.style.transform='';d.tr.querySelector('.slide-fill').style.width='';
+}
+document.addEventListener('pointerup',endDrag);
+document.addEventListener('pointercancel',endDrag);
+document.addEventListener('keydown',function(e){
+  var th=e.target.closest&&e.target.closest('.slide-thumb');
+  if(th&&(e.key==='Enter'||e.key===' '||e.key==='ArrowRight')){e.preventDefault();manualPR(th.parentNode.dataset.l)}
+});
 document.addEventListener('change',function(ev){
   var t=ev.target;
   if(t.id==='imp'){
