@@ -112,9 +112,9 @@ input::placeholder{color:var(--muted)}
 .tabs button{flex:1;min-height:40px;border:0;background:transparent;border-radius:999px;font:600 13px var(--display);padding:0 2px;color:var(--muted)}
 .tabs button[aria-current=true]{color:var(--accent);background:var(--surface2)}
 .slide{position:relative;height:44px;border-radius:999px;background:var(--surface2);overflow:hidden;user-select:none;-webkit-user-select:none}
-.slide-fill{position:absolute;top:0;bottom:0;left:0;width:44px;background:var(--pr-bg);border-radius:999px}
-.slide-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding-left:36px;color:var(--muted);font-weight:600;font-size:13px;pointer-events:none}
-.slide-thumb{position:absolute;top:4px;left:4px;width:36px;height:36px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center;font:700 22px/1 var(--display);touch-action:none;cursor:grab}
+.slide-fill{z-index:1;position:absolute;top:0;bottom:0;left:0;width:44px;background:var(--pr-bg);border-radius:999px}
+.slide-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding-left:36px;color:var(--muted);font-weight:600;font-size:13px;pointer-events:none;transition:opacity .12s}
+.slide-thumb{z-index:2;position:absolute;top:4px;left:4px;width:36px;height:36px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center;font:700 22px/1 var(--display);touch-action:none;cursor:grab}
 .slide:not(.drag) .slide-thumb{transition:transform .2s}
 .slide:not(.drag) .slide-fill{transition:width .2s}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
@@ -250,7 +250,7 @@ function liftsHTML(){
       (last&&last.r>1?'<div class="meta">Best set '+f(last.wt)+' × '+last.r+'</div>':'')+'</div>'+
     '<div style="text-align:right"><div class="num" style="font-size:18px">'+(S.pr[l.k]?f(tm(l.k)):'—')+'</div><div class="hint">training max</div></div></div>'+
     '<input type="number" inputmode="decimal" id="pr-'+l.k+'" step="any" placeholder="Set PR manually ('+S.unit+')" aria-label="'+l.n+' PR">'+
-    '<div class="slide" data-l="'+l.k+'"><div class="slide-fill"></div><span class="slide-label">Slide to set PR</span><div class="slide-thumb" role="button" tabindex="0" aria-label="Slide right or press Enter to set '+l.n+' PR">›</div></div>'+
+    '<div class="slide" data-l="'+l.k+'"><span class="slide-label">Slide to set PR</span><div class="slide-fill"></div><div class="slide-thumb" role="button" tabindex="0" aria-label="Slide right or press Enter to set '+l.n+' PR">›</div></div>'+
     (LIFTS.length>0?'<button class="btn small ghost danger" data-act="lift-del" data-l="'+l.k+'">'+(confirmLift===l.k?'Tap again to remove lift':'Remove lift')+'</button>':'')+'</div>';
   });
   h+='<div class="card stack"><div class="label">Add a lift</div><div class="field"><label class="label" for="nl-name">Name</label><input type="text" id="nl-name" maxlength="40" placeholder="e.g. Barbell Row"></div>'+
@@ -350,7 +350,7 @@ function settingsHTML(){
   '</div><div class="card stack"><div class="label">Backup</div><p class="hint" style="margin:0">Your data lives only in this browser. Export a copy now and then, and use import to move it to another device.</p>'+
   '<div class="row"><button class="btn small" data-act="export">Export backup</button><label class="btn small" for="imp" style="display:inline-flex;align-items:center">Import backup</label><input type="file" id="imp" accept="application/json,.json" hidden></div>'+
   '</div><div class="card stack"><div class="label">Reset</div><p class="hint" style="margin:0">Erases PRs, history and program position.</p>'+
-  '<button class="btn danger" data-act="reset">'+(confirmReset?'Tap again to erase everything':'Erase all data')+'</button></div><div class="hint" style="text-align:center">G-WORK build 7</div></div>';
+  '<button class="btn danger" data-act="reset">'+(confirmReset?'Tap again to erase everything':'Erase all data')+'</button></div><div class="hint" style="text-align:center">G-WORK build 8</div></div>';
 }
 
 function render(){
@@ -474,6 +474,7 @@ document.addEventListener('pointermove',function(e){
   var dx=Math.max(0,Math.min(drag.max,e.clientX-drag.x0));drag.dx=dx;
   drag.th.style.transform='translateX('+dx+'px)';
   drag.tr.querySelector('.slide-fill').style.width=(dx+44)+'px';
+  drag.tr.querySelector('.slide-label').style.opacity=dx>6?'0':'';
 });
 function endDrag(){
   if(!drag)return;
@@ -481,7 +482,7 @@ function endDrag(){
   if(d.max>0&&d.dx>=d.max*0.9){
     if(manualPR(d.tr.dataset.l))return;
   }
-  d.th.style.transform='';d.tr.querySelector('.slide-fill').style.width='';
+  d.th.style.transform='';d.tr.querySelector('.slide-fill').style.width='';d.tr.querySelector('.slide-label').style.opacity='';
 }
 document.addEventListener('pointerup',endDrag);
 document.addEventListener('pointercancel',endDrag);
